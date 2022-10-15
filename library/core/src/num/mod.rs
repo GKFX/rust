@@ -726,7 +726,11 @@ impl u8 {
     #[rustc_const_stable(feature = "const_ascii_ctype_on_intrinsics", since = "1.47.0")]
     #[inline]
     pub const fn is_ascii_punctuation(&self) -> bool {
-        matches!(*self, b'!'..=b'/' | b':'..=b'@' | b'['..=b'`' | b'{'..=b'~')
+        // Bitwise or converts A-Z to a-z, avoiding need for branches in compiled code.
+        // This compiles without branches and with only three comparisons on x86-64.
+        matches!(*self, b'!'..=b'~') // ASCII graphic...
+            && !matches!(*self, b'0'..=b'9') // not a digit ...
+            && !matches!(*self | 0x20, b'a'..=b'z') // or a letter.
     }
 
     /// Checks if the value is an ASCII graphic character:
