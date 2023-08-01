@@ -581,7 +581,7 @@ impl<'a> TraitDef<'a> {
         type_ident: Ident,
         generics: &Generics,
         field_tys: Vec<P<ast::Ty>>,
-        methods: Vec<P<ast::AssocItem>>,
+        mut items: ThinVec<P<ast::AssocItem>>,
         is_packed: bool,
     ) -> P<ast::Item> {
         let trait_path = self.path.to_path(cx, self.span, type_ident, generics);
@@ -783,6 +783,8 @@ impl<'a> TraitDef<'a> {
         let attrs = thin_vec![cx.attr_word(sym::automatically_derived, self.span),];
         let opt_trait_ref = Some(trait_ref);
 
+        items.extend(associated_types);
+
         cx.item(
             self.span,
             Ident::empty(),
@@ -795,7 +797,7 @@ impl<'a> TraitDef<'a> {
                 generics: trait_generics,
                 of_trait: opt_trait_ref,
                 self_ty: self_type,
-                items: methods.into_iter().chain(associated_types).collect(),
+                items,
             })),
         )
     }
@@ -812,7 +814,7 @@ impl<'a> TraitDef<'a> {
         let field_tys: Vec<P<ast::Ty>> =
             struct_def.fields().iter().map(|field| field.ty.clone()).collect();
 
-        let methods = self
+        let items: ThinVec<_> = self
             .methods
             .iter()
             .map(|method_def| {
@@ -851,7 +853,7 @@ impl<'a> TraitDef<'a> {
             })
             .collect();
 
-        self.create_derived_impl(cx, type_ident, generics, field_tys, methods, is_packed)
+        self.create_derived_impl(cx, type_ident, generics, field_tys, items, is_packed)
     }
 
     fn expand_enum_def(
@@ -868,7 +870,7 @@ impl<'a> TraitDef<'a> {
             field_tys.extend(variant.data.fields().iter().map(|field| field.ty.clone()));
         }
 
-        let methods = self
+        let items: ThinVec<_> = self
             .methods
             .iter()
             .map(|method_def| {
@@ -907,7 +909,7 @@ impl<'a> TraitDef<'a> {
             .collect();
 
         let is_packed = false; // enums are never packed
-        self.create_derived_impl(cx, type_ident, generics, field_tys, methods, is_packed)
+        self.create_derived_impl(cx, type_ident, generics, field_tys, items, is_packed)
     }
 }
 
@@ -1575,17 +1577,11 @@ impl<'a> TraitDef<'a> {
             selflike_args
                 .iter()
                 .map(|selflike_arg| {
-                    // Note: we must use `struct_field.span` rather than `sp` in the
-                    // `unwrap_or_else` case otherwise the hygiene is wrong and we get
-                    // "field `0` of struct `Point` is private" errors on tuple
-                    // structs.
                     let mut field_expr = cx.expr(
                         sp,
                         ast::ExprKind::Field(
                             selflike_arg.clone(),
-                            struct_field.ident.unwrap_or_else(|| {
-                                Ident::from_str_and_span(&i.to_string(), struct_field.span)
-                            }),
+                            struct_field_ident(struct_field, i),
                         ),
                     );
                     if is_packed {
@@ -1714,4 +1710,11 @@ where
         }
         AllFieldlessEnum(..) => cx.dcx().span_bug(trait_span, "fieldless enum in `derive`"),
     }
+}
+
+/// Note: we use `field.span` when constructing a new ident, otherwise the
+/// hygiene is wrong and we get "field `0` of struct `Point` is private"
+/// errors on tuple structs.
+pub(super) fn struct_field_ident(field: &ast::FieldDef, index: usize) -> Ident {
+    field.ident.unwrap_or_else(|| Ident::from_str_and_span(&index.to_string(), field.span))
 }

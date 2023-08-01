@@ -6,7 +6,7 @@ use rustc_ast::{GenericArg, MetaItem};
 use rustc_expand::base::{Annotatable, ExpandResult, ExtCtxt, MultiItemModifier};
 use rustc_span::symbol::{sym, Symbol};
 use rustc_span::Span;
-use thin_vec::{thin_vec, ThinVec};
+use thin_vec::ThinVec;
 
 macro path_local($x:ident) {
     generic::ty::Path::new_local(sym::$x)
@@ -106,14 +106,7 @@ fn call_unreachable(cx: &ExtCtxt<'_>, span: Span) -> P<ast::Expr> {
     let path = cx.std_path(&[sym::intrinsics, sym::unreachable]);
     let call = cx.expr_call_global(span, path, ThinVec::new());
 
-    cx.expr_block(P(ast::Block {
-        stmts: thin_vec![cx.stmt_expr(call)],
-        id: ast::DUMMY_NODE_ID,
-        rules: ast::BlockCheckMode::Unsafe(ast::CompilerGenerated),
-        span,
-        tokens: None,
-        could_be_bare_literal: false,
-    }))
+    cx.unsafe_expr(span, call)
 }
 
 fn assert_ty_bounds(

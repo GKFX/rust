@@ -12,13 +12,15 @@ use crate::ops::Deref;
 use crate::result;
 use crate::str;
 
-mod builders;
+#[doc(hidden)]
+pub mod builders;
 #[cfg(not(no_fp_fmt_parse))]
 mod float;
 #[cfg(no_fp_fmt_parse)]
 mod nofloat;
 mod num;
-mod rt;
+#[doc(hidden)]
+pub mod rt;
 
 #[stable(feature = "fmt_flags_align", since = "1.28.0")]
 #[cfg_attr(not(test), rustc_diagnostic_item = "Alignment")]
@@ -624,7 +626,13 @@ pub(crate) mod macros {
     /// Derive macro generating an impl of the trait `Debug`.
     #[rustc_builtin_macro]
     #[stable(feature = "builtin_macro_prelude", since = "1.38.0")]
-    #[allow_internal_unstable(core_intrinsics, fmt_helpers_for_derive)]
+    #[allow_internal_unstable(
+        core_intrinsics,
+        fmt_helpers_for_derive,
+        fmt_internals,
+        offset_of_enum,
+        offset_of_nested
+    )]
     pub macro Debug($item:item) {
         /* compiler built-in */
     }
@@ -2304,6 +2312,83 @@ impl<'a> Formatter<'a> {
     pub fn debug_map<'b>(&'b mut self) -> DebugMap<'b, 'a> {
         builders::debug_map_new(self)
     }
+}
+
+struct OpaqueFormattable<'obj> {
+    obj: &'obj rt::Opaque,
+    f: rt::OpaqueFormatter,
+}
+
+impl<'obj> OpaqueFormattable<'obj> {
+    #[inline]
+    unsafe fn new(obj: &'obj rt::Opaque, f: rt::OpaqueFormatter) -> Self {
+        Self { obj, f }
+    }
+}
+
+impl FnOnce<(&mut Formatter<'_>,)> for OpaqueFormattable<'_> {
+    type Output = Result;
+
+    #[inline]
+    extern "rust-call" fn call_once(self, args: (&mut Formatter<'_>,)) -> Result {
+        (self.f)(self.obj, args.0)
+    }
+}
+
+/// Write the debug representation of a tuple struct from a table, which is expected to
+/// be computed at compile time. The field `last`, while in the same format as the
+/// rest of the table, is expected to be generated at runtime as it may be
+/// referring to unsized type.
+#[inline(never)]
+#[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
+pub fn write_debug_tuple_table(
+    // This function's first two arguments are the same as its callers', which reduces the
+    // amount of machine code needed to call it.
+    object: &rt::Opaque,
+    fmt: &mut Formatter<'_>,
+    table: &builders::DebugTupleTable<[builders::DebugTupleTableRow]>,
+    last: &rt::Opaque,
+) -> core::fmt::Result {
+    let mut dbg = builders::debug_tuple_new(fmt, table.name);
+    for row in &table.fields {
+        // SAFETY: it is required that the functions and pointers provided
+        // match up.
+        dbg.field_with(unsafe {
+            OpaqueFormattable::new(&*(object as *const rt::Opaque).byte_add(row.offset), row.fmt)
+        });
+    }
+    // SAFETY: as above
+    dbg.field_with(unsafe { OpaqueFormattable::new(last, table.last_fmt) });
+
+    dbg.finish()
+}
+
+/// Write the debug representation of a struct from a table, which is expected to
+/// be computed at compile time. The field `last`, while in the same format as the
+/// rest of the table, is expected to be generated at runtime as it may be
+/// referring to unsized type.
+#[inline(never)]
+#[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
+pub fn write_debug_struct_table(
+    // This function's first two arguments are the same as its callers', which reduces the
+    // amount of machine code needed to call it.
+    object: &rt::Opaque,
+    fmt: &mut Formatter<'_>,
+    table: &builders::DebugStructTable<[builders::DebugStructTableRow]>,
+    last: &rt::Opaque,
+) -> core::fmt::Result {
+    let mut dbg = builders::debug_struct_new(fmt, table.name);
+    for row in &table.fields {
+        // SAFETY: it is required that the functions and pointers provided
+        // match up.
+        dbg.field_with(row.name, unsafe {
+            OpaqueFormattable::new(&*(object as *const rt::Opaque).byte_add(row.offset), row.fmt)
+        });
+    }
+    // SAFETY: as above
+    dbg.field_with(table.last_name, unsafe { OpaqueFormattable::new(last, table.last_fmt) });
+
+    dbg.finish()
 }
 
 #[stable(since = "1.2.0", feature = "formatter_write")]

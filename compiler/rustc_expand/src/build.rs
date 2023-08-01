@@ -238,6 +238,7 @@ impl<'a> ExtCtxt<'a> {
             }],
         )
     }
+
     pub fn block(&self, span: Span, stmts: ThinVec<ast::Stmt>) -> P<ast::Block> {
         P(ast::Block {
             stmts,
@@ -247,6 +248,21 @@ impl<'a> ExtCtxt<'a> {
             tokens: None,
             could_be_bare_literal: false,
         })
+    }
+
+    pub fn unsafe_block(&self, span: Span, stmts: ThinVec<ast::Stmt>) -> P<ast::Block> {
+        P(ast::Block {
+            stmts,
+            id: ast::DUMMY_NODE_ID,
+            rules: BlockCheckMode::Unsafe(ast::CompilerGenerated),
+            span,
+            tokens: None,
+            could_be_bare_literal: false,
+        })
+    }
+
+    pub fn unsafe_expr(&self, span: Span, expr: P<ast::Expr>) -> P<ast::Expr> {
+        self.expr_block(self.unsafe_block(span, thin_vec![self.stmt_expr(expr)]))
     }
 
     pub fn expr(&self, span: Span, kind: ast::ExprKind) -> P<ast::Expr> {
@@ -389,6 +405,10 @@ impl<'a> ExtCtxt<'a> {
     /// `&[expr1, expr2, ...]`
     pub fn expr_array_ref(&self, sp: Span, exprs: ThinVec<P<ast::Expr>>) -> P<ast::Expr> {
         self.expr_addr_of(sp, self.expr_array(sp, exprs))
+    }
+
+    pub fn expr_cast(&self, sp: Span, expr: P<ast::Expr>, ty: P<ast::Ty>) -> P<ast::Expr> {
+        self.expr(sp, ast::ExprKind::Cast(expr, ty))
     }
 
     pub fn expr_some(&self, sp: Span, expr: P<ast::Expr>) -> P<ast::Expr> {

@@ -1,5 +1,7 @@
 #![allow(unused_imports)]
+#![unstable(feature = "fmt_helpers_for_derive", issue = "none")]
 
+use crate::fmt::rt::{Argument, Opaque, OpaqueFormatter};
 use crate::fmt::{self, Debug, Formatter};
 
 struct PadAdapter<'buf, 'state> {
@@ -253,6 +255,51 @@ impl<'a, 'b: 'a> DebugStruct<'a, 'b> {
     fn is_pretty(&self) -> bool {
         self.fmt.alternate()
     }
+}
+
+/// The information known at compile time needed to print one field of a struct.
+#[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
+#[allow(missing_debug_implementations)]
+pub struct DebugStructTableRow {
+    pub name: &'static str,
+    pub fmt: OpaqueFormatter,
+    pub offset: usize,
+}
+
+/// A static table containing the names, offsets and function
+/// pointers required to output a Debug representation of a struct.
+#[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
+#[allow(missing_debug_implementations)]
+pub struct DebugStructTable<T: ?Sized> {
+    #[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
+    pub name: &'static str,
+    #[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
+    pub last_name: &'static str,
+    #[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
+    pub last_fmt: OpaqueFormatter,
+    #[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
+    pub fields: T,
+}
+
+/// The information known at compile time needed to print one field of a tuple.
+#[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
+#[allow(missing_debug_implementations)]
+pub struct DebugTupleTableRow {
+    pub fmt: OpaqueFormatter,
+    pub offset: usize,
+}
+
+/// A static table containing the names, offsets and function
+/// pointers required to output a Debug representation of a tuple.
+#[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
+#[allow(missing_debug_implementations)]
+pub struct DebugTupleTable<T: ?Sized> {
+    #[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
+    pub name: &'static str,
+    #[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
+    pub last_fmt: OpaqueFormatter,
+    #[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
+    pub fields: T,
 }
 
 /// A struct to help with [`fmt::Debug`](Debug) implementations.

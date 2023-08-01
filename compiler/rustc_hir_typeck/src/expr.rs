@@ -3266,8 +3266,18 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     ) -> Ty<'tcx> {
         let container = self.lower_ty(container).normalized;
 
+        // #[allow_internal_unstable] doesn't work on `self.tcx.features`.
+        let allowed_internal_unstable = |sym| {
+            if let Some(a) = expr.span.data().ctxt.outer_expn_data().allow_internal_unstable {
+                a.iter().any(|s| *s == sym)
+            } else {
+                false
+            }
+        };
+
         if let Some(ident_2) = fields.get(1)
             && !self.tcx.features().offset_of_nested
+            && !allowed_internal_unstable(sym::offset_of_nested)
         {
             rustc_session::parse::feature_err(
                 &self.tcx.sess,
@@ -3291,7 +3301,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     let (ident, _def_scope) =
                         self.tcx.adjust_ident_and_get_scope(field, container_def.did(), block);
 
-                    if !self.tcx.features().offset_of_enum {
+                    if !self.tcx.features().offset_of_enum
+                        && !allowed_internal_unstable(sym::offset_of_enum)
+                    {
                         rustc_session::parse::feature_err(
                             &self.tcx.sess,
                             sym::offset_of_enum,

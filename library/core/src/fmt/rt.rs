@@ -66,7 +66,7 @@ pub(super) enum Flag {
 
 #[derive(Copy, Clone)]
 enum ArgumentType<'a> {
-    Placeholder { value: &'a Opaque, formatter: fn(&Opaque, &mut Formatter<'_>) -> Result },
+    Placeholder { value: &'a Opaque, formatter: OpaqueFormatter },
     Count(usize),
 }
 
@@ -89,7 +89,7 @@ pub struct Argument<'a> {
 #[rustc_diagnostic_item = "ArgumentMethods"]
 impl<'a> Argument<'a> {
     #[inline(always)]
-    fn new<'b, T>(x: &'b T, f: fn(&T, &mut Formatter<'_>) -> Result) -> Argument<'b> {
+    pub(super) fn new<'b, T>(x: &'b T, f: fn(&T, &mut Formatter<'_>) -> Result) -> Argument<'b> {
         // SAFETY: `mem::transmute(x)` is safe because
         //     1. `&'b T` keeps the lifetime it originated with `'b`
         //              (so as to not have an unbounded lifetime)
@@ -210,5 +210,6 @@ impl UnsafeArg {
 }
 
 extern "C" {
-    type Opaque;
+    pub type Opaque;
 }
+pub type OpaqueFormatter = fn(&Opaque, &mut Formatter<'_>) -> Result;
