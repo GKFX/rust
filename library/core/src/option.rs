@@ -737,7 +737,7 @@ impl<T> Option<T> {
     #[inline]
     #[must_use]
     #[stable(feature = "pin", since = "1.33.0")]
-    #[rustc_const_unstable(feature = "const_option_ext", issue = "91930")]
+    #[rustc_const_stable(feature = "const_option_2", issue = "91930")]
     pub const fn as_pin_ref(self: Pin<&Self>) -> Option<Pin<&T>> {
         match Pin::get_ref(self).as_ref() {
             // SAFETY: `x` is guaranteed to be pinned because it comes from `self`
@@ -799,7 +799,7 @@ impl<T> Option<T> {
     #[inline]
     #[must_use]
     #[stable(feature = "option_as_slice", since = "1.75.0")]
-    #[rustc_const_unstable(feature = "const_option_ext", issue = "91930")]
+    #[rustc_const_stable(feature = "const_option_2", issue = "91930")]
     pub const fn as_slice(&self) -> &[T] {
         // SAFETY: When the `Option` is `Some`, we're using the actual pointer
         // to the payload, with a length of 1, so this is equivalent to
